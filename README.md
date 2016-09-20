@@ -1,22 +1,24 @@
 # A-Frame
 
-__Building blocks for the VR Web.__
+**Building Blocks for the VR Web**
 
 [![build status][travis-image]][travis-url]
+[![codecov][codecov-image]][codecov-url]
 [![NPM version][npm-image]][npm-url]
 [![Downloads][downloads-image]][downloads-url]
 [![js-semistandard-style][semistandard-image]][semistandard-url]
 
 A-Frame is a framework for creating virtual reality web experiences.
 
+![<a-montage>](https://cloud.githubusercontent.com/assets/674727/14156618/3258460c-f67c-11e5-8176-5b66c3169a1c.gif)
+
 - **Virtual Reality**: Drop in the library and have a WebVR scene within a few lines of markup.
 - **Based on the DOM**: Manipulate with JavaScript, use with your favorite [libraries and frameworks](https://github.com/aframevr/awesome-aframe).
-- **[Entity-Component-System](https://aframe.io/docs/core/)**: Based on an entity-component-system pattern for better composability and flexibility.
+- **[Entity-Component-System](https://aframe.io/docs/core/)**: Based on an entity-component-system pattern for better composability and extensibility.
 
 Find out more:
 
 - [Guide](https://aframe.io/docs/guide/)
-- [Docs](https://aframe.io/docs/core/)
 - [Examples](https://aframe.io/examples/)
 - [awesome-aframe](https://github.com/aframevr/awesome-aframe)
 - [Ask us on Slack!](https://aframevr-slack.herokuapp.com/)
@@ -31,11 +33,11 @@ To get started immediately, just fire up [__this CodePen example scene__](http:/
 
 To embed this library in your project, include this file:
 
-* [`aframe.min.js`](https://aframe.io/releases/0.1.3/aframe.min.js)
+* [`aframe.min.js`](https://aframe.io/releases/0.2.0/aframe.min.js)
 
 For the unminified version for local development (with source maps), include this file:
 
-* [`aframe.js`](https://aframe.io/releases/0.1.3/aframe.js)
+* [`aframe.js`](https://aframe.io/releases/0.2.0/aframe.js)
 
 __Also, be sure to check out the awesome [examples](https://aframe.io/examples/) (or [the ones in this repository](examples/)).__
 
@@ -93,6 +95,10 @@ To publish to __https://your_username.github.io/aframe/__:
 
     npm run ghpages your_username
 
+## Contributing
+
+Get involved! Check out the [Contributing Guide](CONTRIBUTING.md) for how to get started.
+
 ## License
 
 This program is free software and is distributed under an [MIT License](LICENSE).
@@ -105,3 +111,6 @@ This program is free software and is distributed under an [MIT License](LICENSE)
 [downloads-url]: https://npmjs.org/package/aframe
 [semistandard-image]: https://img.shields.io/badge/code%20style-semistandard-brightgreen.svg?style=flat-square
 [semistandard-url]: https://github.com/Flet/semistandard
+<!-- codecov -->
+[codecov-image]: https://codecov.io/gh/aframevr/aframe/branch/master/graph/badge.svg
+[codecov-url]: https://codecov.io/gh/aframevr/aframe

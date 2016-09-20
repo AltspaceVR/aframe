@@ -1,8 +1,10 @@
-/* global assert, process, sinon, setup, suite, teardown, test */
-var helpers = require('../../helpers');
+/* global AFRAME, assert, process, sinon, setup, suite, teardown, test */
 var AEntity = require('core/a-entity');
 var ANode = require('core/a-node');
 var AScene = require('core/scene/a-scene');
+var components = require('core/component').components;
+var helpers = require('../../helpers');
+var systems = require('core/system').systems;
 
 /**
  * Tests in this suite should not involve WebGL contexts or renderer.
@@ -14,8 +16,7 @@ var AScene = require('core/scene/a-scene');
  */
 suite('a-scene (without renderer)', function () {
   setup(function () {
-    var el;
-    el = this.el = document.createElement('a-scene');
+    var el = this.el = document.createElement('a-scene');
     document.body.appendChild(el);
   });
 
@@ -27,6 +28,21 @@ suite('a-scene (without renderer)', function () {
     test('initializes scene object', function () {
       assert.equal(this.el.object3D.type, 'Scene');
     });
+
+    test('does not initialize systems', function () {
+      var sceneEl = document.createElement('a-scene');
+      assert.notOk(Object.keys(sceneEl.systems).length);
+    });
+  });
+
+  suite('attachedCallback', function () {
+    test('initializes systems', function (done) {
+      var self = this;
+      self.el.addEventListener('loaded', function () {
+        assert.ok(Object.keys(self.el.systems).length);
+        done();
+      });
+    });
   });
 
   suite('init', function () {
@@ -35,7 +51,7 @@ suite('a-scene (without renderer)', function () {
       sceneEl.isPlaying = false;
       sceneEl.hasLoaded = true;
       sceneEl.init();
-      assert.equal(sceneEl.isPlaying, true);
+      assert.equal(sceneEl.isPlaying, false);
       assert.equal(sceneEl.hasLoaded, false);
     });
   });
@@ -55,6 +71,36 @@ suite('a-scene (without renderer)', function () {
       sceneEl.reload(true);
       sinon.assert.called(AEntity.prototype.pause);
       sinon.assert.called(ANode.prototype.load);
+    });
+  });
+
+  suite('system', function () {
+    setup(function () {
+      delete components.test;
+      delete systems.test;
+    });
+
+    test('can getAttribute', function () {
+      var sceneEl = document.createElement('a-scene');
+
+      AFRAME.registerComponent('test', {schema: {default: 'component'}});
+      AFRAME.registerSystem('test', {schema: {default: 'system'}});
+
+      sceneEl.initSystem('test');
+      assert.equal(sceneEl.getAttribute('test'), 'system');
+      assert.equal(sceneEl.getComputedAttribute('test'), 'system');
+    });
+
+    test('does not initialize component on setAttribute', function () {
+      var sceneEl = document.createElement('a-scene');
+      var stub = sinon.stub();
+
+      AFRAME.registerComponent('test', {init: stub});
+      AFRAME.registerSystem('test', {});
+
+      sceneEl.initSystem('test');
+      sceneEl.setAttribute('test', '');
+      assert.notOk(stub.called);
     });
   });
 });
@@ -106,6 +152,12 @@ helpers.getSkipCISuite()('a-scene (with renderer)', function () {
         assert.ok(document.body);
         done();
       });
+    });
+  });
+
+  suite('play', function () {
+    test('has camera on renderstart', function () {
+      assert.ok(this.el.camera);
     });
   });
 

@@ -1,5 +1,4 @@
 var registerShader = require('../core/shader').registerShader;
-var srcLoader = require('../utils/src-loader');
 var THREE = require('../lib/three');
 var utils = require('../utils/');
 
@@ -11,15 +10,15 @@ var texturePromises = {};
  */
 module.exports.Component = registerShader('standard', {
   schema: {
-    color: { type: 'color' },
-    envMap: { default: '' },
-    fog: { default: true },
-    height: { default: 256 },
-    metalness: { default: 0.0, min: 0.0, max: 1.0 },
-    repeat: { default: '' },
-    src: { default: '' },
-    roughness: { default: 0.5, min: 0.0, max: 1.0 },
-    width: { default: 512 }
+    color: {type: 'color'},
+    envMap: {default: ''},
+    fog: {default: true},
+    height: {default: 256},
+    metalness: {default: 0.0, min: 0.0, max: 1.0},
+    repeat: {default: ''},
+    roughness: {default: 0.5, min: 0.0, max: 1.0},
+    src: {default: ''},
+    width: {default: 512}
   },
   /**
    * Initializes the shader.
@@ -27,38 +26,14 @@ module.exports.Component = registerShader('standard', {
    */
   init: function (data) {
     this.material = new THREE.MeshStandardMaterial(getMaterialData(data));
-    this.updateTexture(data);
+    utils.material.updateMap(this, data);
     this.updateEnvMap(data);
-    return this.material;
   },
 
   update: function (data) {
     this.updateMaterial(data);
-    this.updateTexture(data);
+    utils.material.updateMap(this, data);
     this.updateEnvMap(data);
-    return this.material;
-  },
-
-  /**
-   * Update or create material.
-   *
-   * @param {object|null} oldData
-   */
-  updateTexture: function (data) {
-    var src = data.src;
-    var material = this.material;
-    if (src) {
-      if (src === this.textureSrc) { return; }
-      // Texture added or changed.
-      this.textureSrc = src;
-      srcLoader.validateSrc(src,
-        utils.texture.loadImage.bind(this, material, data),
-        utils.texture.loadVideo.bind(this, material, data)
-      );
-    } else {
-      // Texture removed.
-      utils.texture.updateMaterial(material, null);
-    }
   },
 
   /**
@@ -103,7 +78,7 @@ module.exports.Component = registerShader('standard', {
 
     // Material is first to load this texture. Load and resolve texture.
     texturePromises[envMap] = new Promise(function (resolve) {
-      srcLoader.validateCubemapSrc(envMap, function loadEnvMap (urls) {
+      utils.srcLoader.validateCubemapSrc(envMap, function loadEnvMap (urls) {
         CubeLoader.load(urls, function (cube) {
           // Texture loaded.
           self.isLoadingEnvMap = false;
@@ -122,10 +97,10 @@ module.exports.Component = registerShader('standard', {
  * @returns {object} data - Processed material data.
  */
 function getMaterialData (data) {
-  var materialData = {
+  return {
     color: new THREE.Color(data.color),
+    fog: data.fog,
     metalness: data.metalness,
     roughness: data.roughness
   };
-  return materialData;
 }

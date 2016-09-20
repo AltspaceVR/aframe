@@ -1,7 +1,7 @@
 /* global assert, process, setup, suite, test, AFRAME */
 var entityFactory = require('../helpers').entityFactory;
+var shaders = require('core/shader').shaders;
 var THREE = require('index').THREE;
-var texture = require('utils/texture');
 
 suite('material', function () {
   setup(function (done) {
@@ -24,6 +24,21 @@ suite('material', function () {
       assert.shallowDeepEqual(el.getObject3D('mesh').material.color,
                              {r: 1, g: 0, b: 1});
       assert.shallowDeepEqual(el.getObject3D('mesh').material.side, THREE.DoubleSide);
+    });
+
+    test('updates material shader', function () {
+      var el = this.el;
+      assert.equal(el.getObject3D('mesh').material.type, 'MeshBasicMaterial');
+      el.setAttribute('material', 'shader', 'standard');
+      assert.equal(el.getObject3D('mesh').material.type, 'MeshStandardMaterial');
+    });
+
+    test('disposes material when changing to new material', function () {
+      var el = this.el;
+      var material = el.getObject3D('mesh').material;
+      var disposeSpy = this.sinon.spy(material, 'dispose');
+      el.setAttribute('material', 'shader', 'standard');
+      assert.ok(disposeSpy.called);
     });
 
     test('defaults to standard material', function () {
@@ -56,15 +71,24 @@ suite('material', function () {
       var el = this.el;
       var imageUrl = 'base/tests/assets/test.png';
       el.setAttribute('material', 'src: url(' + imageUrl + ')');
-      el.addEventListener('material-texture-loaded', function (evt) {
-        assert.equal(evt.detail.src, imageUrl);
+      el.addEventListener('materialtextureloaded', function (evt) {
+        assert.equal(evt.detail.texture.image.getAttribute('src'), imageUrl);
         done();
       });
+    });
+
+    test('sets material to MeshShaderMaterial for custom shaders', function () {
+      var el = this.el;
+      delete shaders.test;
+      AFRAME.registerShader('test', {});
+      assert.equal(el.getObject3D('mesh').material.type, 'MeshBasicMaterial');
+      el.setAttribute('material', 'shader', 'test');
+      assert.equal(el.getObject3D('mesh').material.type, 'ShaderMaterial');
     });
   });
 
   suite('updateSchema', function () {
-    test('Updates the schema', function () {
+    test('updates schema for flat shader', function () {
       var el = this.el;
       el.components.material.updateSchema({shader: 'flat'});
       assert.ok(el.components.material.schema.color);
@@ -77,39 +101,21 @@ suite('material', function () {
       assert.notOk(el.components.material.schema.roughness);
       assert.notOk(el.components.material.schema.envMap);
     });
-  });
 
-  suite('updateShader', function () {
-    test('the material is updated', function () {
+    test('updates schema for custom shader', function () {
       var el = this.el;
-      assert.equal(el.getObject3D('mesh').material.type, 'MeshBasicMaterial');
-      el.components.material.updateShader('standard');
-      assert.equal(el.getObject3D('mesh').material.type, 'MeshStandardMaterial');
-    });
-
-    test('the material is set to MeshShaderMaterial for custom shaders', function () {
-      var el = this.el;
+      delete shaders.test;
       AFRAME.registerShader('test', {
         schema: {
-          'luminance': { default: 1 }
-        },
-
-        vertexShader: [
-          'varying vec3 vWorldPosition;',
-          'void main() {',
-          'vec4 worldPosition = modelMatrix * vec4( position, 1.0 );',
-          'vWorldPosition = worldPosition.xyz;',
-          'gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
-          '}'
-        ].join('\n'),
-
-        fragmentShader: [
-          'void main() { gl_FragColor = vec4(1.0,0.0,1.0,1.0); }'
-        ].join('\n')
+          color: {type: 'color'},
+          luminance: {default: 1}
+        }
       });
-      assert.equal(el.getObject3D('mesh').material.type, 'MeshBasicMaterial');
-      el.components.material.updateShader('test');
-      assert.equal(el.getObject3D('mesh').material.type, 'ShaderMaterial');
+      el.setAttribute('material', 'shader', 'test');
+      assert.ok(el.components.material.schema.opacity);
+      assert.ok(el.components.material.schema.color);
+      assert.ok(el.components.material.schema.luminance);
+      assert.notOk(el.components.material.schema.src);
     });
   });
 
@@ -119,6 +125,14 @@ suite('material', function () {
       assert.ok(el.getObject3D('mesh').material);
       el.removeAttribute('material');
       assert.equal(el.getObject3D('mesh').material.type, 'MeshBasicMaterial');
+    });
+
+    test('disposes material', function () {
+      var el = this.el;
+      var material = el.getObject3D('mesh').material;
+      var disposeSpy = this.sinon.spy(material, 'dispose');
+      el.removeAttribute('material');
+      assert.ok(disposeSpy.called);
     });
   });
 
@@ -146,105 +160,6 @@ suite('material', function () {
       var el = this.el;
       el.setAttribute('material', 'side: double');
       assert.equal(el.getObject3D('mesh').material.side, THREE.DoubleSide);
-    });
-  });
-
-  suite('texture caching', function () {
-    setup(function () {
-      texture.clearTextureCache();
-    });
-
-    test('does not cache different image textures', function (done) {
-      var el = this.el;
-      var imageUrl = 'base/tests/assets/test.png';
-      var imageUrl2 = 'base/tests/assets/test2.png';
-      var textureSpy = this.sinon.spy(THREE, 'Texture');
-      assert.equal(textureSpy.callCount, 0);
-
-      el.setAttribute('material', 'src: url(' + imageUrl + ')');
-
-      el.addEventListener('material-texture-loaded', function (evt) {
-        var el2;
-        assert.equal(textureSpy.callCount, 1);
-
-        el2 = document.createElement('a-entity');
-        el2.setAttribute('material', 'src: url(' + imageUrl2 + ')');
-        el.sceneEl.appendChild(el2);
-        el2.addEventListener('material-texture-loaded', function () {
-          // Two textures created.
-          assert.equal(textureSpy.callCount, 2);
-          done();
-        });
-      });
-    });
-
-    test('can cache image textures', function (done) {
-      var el = this.el;
-      var imageUrl = 'base/tests/assets/test.png';
-      var textureSpy = this.sinon.spy(THREE, 'Texture');
-      assert.equal(textureSpy.callCount, 0);
-
-      el.setAttribute('material', 'src: url(' + imageUrl + ')');
-
-      el.addEventListener('material-texture-loaded', function () {
-        var el2;
-        assert.equal(textureSpy.callCount, 1);
-
-        el2 = document.createElement('a-entity');
-        el2.setAttribute('material', 'src: url(' + imageUrl + ')');
-        el.sceneEl.appendChild(el2);
-        el2.addEventListener('material-texture-loaded', function () {
-          // Only one texture created.
-          assert.equal(textureSpy.callCount, 1);
-          done();
-        });
-      });
-    });
-
-    test('does not cache different video textures', function (done) {
-      var el = this.el;
-      var videoUrl = 'base/tests/assets/test.mp4';
-      var videoUrl2 = 'base/tests/assets/test2.mp4';
-      var textureSpy = this.sinon.spy(THREE, 'VideoTexture');
-      assert.equal(textureSpy.callCount, 0);
-
-      el.setAttribute('material', 'src: url(' + videoUrl + ')');
-
-      el.addEventListener('material-texture-loaded', function (evt) {
-        var el2;
-        assert.equal(textureSpy.callCount, 1);
-
-        el2 = document.createElement('a-entity');
-        el2.setAttribute('material', 'src: url(' + videoUrl2 + ')');
-        el.sceneEl.appendChild(el2);
-        el2.addEventListener('material-texture-loaded', function () {
-          // Two textures created.
-          assert.equal(textureSpy.callCount, 2);
-          done();
-        });
-      });
-    });
-
-    test('can cache video textures', function (done) {
-      var el = this.el;
-      var videoUrl = 'base/tests/assets/test.mp4';
-      var textureSpy = this.sinon.spy(THREE, 'VideoTexture');
-      assert.equal(textureSpy.callCount, 0);
-
-      el.setAttribute('material', 'src: url(' + videoUrl + ')');
-
-      el.addEventListener('material-texture-loaded', function () {
-        var el2;
-        assert.equal(textureSpy.callCount, 1);
-
-        el2 = document.createElement('a-entity');
-        el2.setAttribute('material', 'src: url(' + videoUrl + ')');
-        el.sceneEl.appendChild(el2);
-        el2.addEventListener('material-texture-loaded', function () {
-          assert.equal(textureSpy.callCount, 1);
-          done();
-        });
-      });
     });
   });
 
@@ -280,5 +195,12 @@ suite('material', function () {
       el.setAttribute('material', 'depthTest: false');
       assert.equal(el.getObject3D('mesh').material.depthTest, 0);
     });
+  });
+
+  test('can set visible to false', function () {
+    var el = this.el;
+    assert.ok(el.getObject3D('mesh').material.visible);
+    el.setAttribute('material', 'visible: false');
+    assert.notOk(el.getObject3D('mesh').material.visible);
   });
 });

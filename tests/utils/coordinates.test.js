@@ -1,5 +1,4 @@
 /* global assert, suite, test */
-'use strict';
 var coordinates = require('index').utils.coordinates;
 
 suite('utils.coordinates', function () {
@@ -41,8 +40,16 @@ suite('utils.coordinates', function () {
   });
 
   suite('stringify', function () {
-    test('stringifies object', function () {
+    test('stringifies a vec2', function () {
+      assert.equal(coordinates.stringify({ x: 1, y: 2 }), '1 2');
+    });
+
+    test('stringifies a vec3', function () {
       assert.equal(coordinates.stringify({ x: 1, y: 2, z: -3 }), '1 2 -3');
+    });
+
+    test('stringifies a vec4', function () {
+      assert.equal(coordinates.stringify({ x: 1, y: 2, z: -3, w: -4 }), '1 2 -3 -4');
     });
 
     test('returns already-stringified string', function () {

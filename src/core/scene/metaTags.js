@@ -1,3 +1,4 @@
+var constants = require('../../constants/');
 var extend = require('../../utils').extend;
 
 var MOBILE_HEAD_TAGS = module.exports.MOBILE_HEAD_TAGS = [
@@ -5,8 +6,7 @@ var MOBILE_HEAD_TAGS = module.exports.MOBILE_HEAD_TAGS = [
 
   // W3C-standardised meta tags.
   Meta({name: 'mobile-web-app-capable', content: 'yes'}),
-  Meta({name: 'theme-color', content: 'black'}),
-  Link({rel: 'icon', sizes: '192x192', href: 'https://aframe.io/images/aframe-logo-192.png'})
+  Meta({name: 'theme-color', content: 'black'})
 ];
 
 var MOBILE_IOS_HEAD_TAGS = [
@@ -74,5 +74,6 @@ module.exports.inject = function injectHeadTags (scene) {
 function createTag (tagObj) {
   if (!tagObj || !tagObj.tagName) { return; }
   var meta = document.createElement(tagObj.tagName);
+  meta.setAttribute(constants.AFRAME_INJECTED, '');
   return extend(meta, tagObj.attributes);
 }
