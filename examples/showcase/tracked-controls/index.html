@@ -5,13 +5,14 @@
     <title>Tracked Controls</title>
     <meta name="description" content="Tracked Controls – A-Frame">
     <script src="../../../dist/aframe.js"></script>
+    <script src="../../../dist/aframe-altspace-component.js"></script>
     <script src="components/aabb-collider.js"></script>
     <script src="components/grab.js"></script>
     <script src="components/ground.js"></script>
     <script src="shaders/skyGradient.js"></script>
   </head>
   <body>
-    <a-scene fog="color: #bc483e; near: 0; far: 65;">
+    <a-scene fog="color: #bc483e; near: 0; far: 65;" altspace>
       <a-assets>
         <a-mixin id="cube"
                  geometry="primitive: box; height: 0.30; width: 0.30; depth: 0.30"

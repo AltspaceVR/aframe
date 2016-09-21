@@ -5,13 +5,11 @@
     <title>Merge Geometries Test</title>
     <meta name="description" content="Merge Geometry - A-Frame">
     <script src="../../../dist/aframe.js"></script>
-    <style>
-      body { background-color: black; }
-    </style>
+    <script src="../../../dist/aframe-altspace-component.js"></script>
   </head>
   <body>
     <div class="stats"></div>
-    <a-scene stats>
+    <a-scene stats altspace scale="0.01 0.01 0.01" position="0 -100 0">
       <a-assets>
         <a-mixin id="cube"
                  geometry="primitive: box; height: 16; width: 16; depth: 16; mergeTo: #boxes; skipCache: true; buffer: false;"
@@ -37,7 +35,7 @@
       zPos = zStartPos;
       for (var i = 0; i < cubesNum; i += 1) {
         xPos = xStartPos;
-        for (var j = 0; j < 10; j += 1) {
+        for (var j = 0; j < 5; j += 1) {
           cubeEl = document.createElement('a-entity');
           cubeEl.setAttribute('mixin', 'cube');
           cubeEl.setAttribute('position', { x: xPos, y: 0, z: zPos});

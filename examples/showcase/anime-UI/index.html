@@ -5,15 +5,13 @@
     <title>Anime UI</title>
     <meta name="description" content="Anime UI — A-Frame">
     <script src="../../../dist/aframe.js"></script>
-    <script src="https://cdn.rawgit.com/AltspaceVR/aframe-altspace-component/v0.2.1/dist/aframe-altspace-component.min.js"></script>
+    <script src="../../../dist/aframe-altspace-component.js"></script>
   </head>
   <body>
     <a-scene altspace scale="0.2 0.2 0.2">
       <a-assets>
         <a-asset-item id="engine" src="models/engine.dae"></a-asset-item>
         <a-mixin id="image" geometry="height: 2; width: 2"></a-mixin>
-        <audio id="blip1" src="audio/321103__nsstudios__blip1.wav"></audio>
-        <audio id="blip2" src="audio/321104__nsstudios__blip2.wav"></audio>
         <img id="glow1" src="img/glow1.png">
         <img id="ring1" src="img/ring1.png">
         <img id="ring2" src="img/ring2.png">
@@ -225,10 +223,6 @@
         <a-animation attribute="intensity" from="0" to="1" delay="500" dur="500" fill="both"></a-animation>
       </a-light>
       <a-light type="ambient" color="#4f6487" ></a-light>
-
-      <!-- Sounds. -->
-      <a-entity sound="autoplay: true; src: #blip1;"></a-entity>
-      <a-entity sound="autoplay: true; src: #blip2;"></a-entity>
     </a-scene>
   </body>
 </html>

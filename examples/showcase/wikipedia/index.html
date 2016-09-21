@@ -3,6 +3,7 @@
 <meta charset="UTF-8">
 <title>Burj Khalifa - Wikipedia, the free encyclopedia</title>
 <script src="../../../dist/aframe.js"></script>
+<script src="../../../dist/aframe-altspace-component.js"></script>
 <script src="../../test/shaders/shaders/sky.js"></script>
 <script type="text/javascript">
 	if (AFRAME.utils.isMobile()) {
@@ -94,13 +95,11 @@ cite,dfn{font-style:inherit} q{quotes:'"' '"' "'" "'"} blockquote{overflow:hidde
 </tr>
 <tr>
 <td colspan="2" style="text-align:center">
-<a-scene class="ascene" debug="" embedded style="margin: auto">
+<a-scene class="ascene" debug="" embedded style="margin: auto" altspace="verticalAlign: bottom" scale="0.005 0.005 0.005" position="200 1 200">
     <a-assets>
       <a-asset-item id="crate-obj" src="https://cdn.aframe.io/wikipedia/model.obj"></a-asset-item>
       <a-asset-item id="crate-mtl" src="https://cdn.aframe.io/wikipedia/model.mtl"></a-asset-item>
     </a-assets>
-    <a-entity id="sky" geometry="primitive: sphere; radius: 2000;"
-              material="shader: sky; sunPosition: 10 18 0;side: back"></a-entity>
     <a-entity scale="0.025 0.025 0.025" position="0 0 0" obj-model="obj: #crate-obj; mtl: #crate-mtl"></a-entity>
     <a-entity geometry="primitive: plane; width: 1000; height: 1000"
               rotation="-90 0 0" material="color: gray"></a-entity>

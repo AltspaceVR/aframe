@@ -5,12 +5,13 @@
     <title>Raycaster</title>
     <meta name="description" content="Raycaster - A-Frame">
     <script src="../../../dist/aframe.js"></script>
+    <script src="../../../dist/aframe-altspace-component.js"></script>
     <script src="components/intersect-color-change.js"></script>
     <script src="components/entity-generator.js"></script>
     <script src="components/raycaster-helper.js"></script>
   </head>
   <body>
-    <a-scene>
+    <a-scene altspace>
       <a-assets>
         <a-mixin id="box" geometry="primitive: box; depth: 0.1, height: 0.3; width: 0.1"
                           material="color: #DDD; opacity: 0.4; shader: flat"

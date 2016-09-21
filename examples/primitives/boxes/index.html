@@ -5,9 +5,10 @@
     <title>Cubes</title>
     <meta name="description" content="Cubes - A-Frame">
     <script src="../../../dist/aframe.js"></script>
+    <script src="../../../dist/aframe-altspace-component.js"></script>
   </head>
   <body>
-    <a-scene>
+    <a-scene altspace scale="0.1 0.1 0.1">
       <a-assets>
         <a-mixin id="box" geometry="depth: 0.1; height: 0.1; width: 0.1"></a-mixin>
         <a-mixin id="frame-edge" geometry="primitive: box; depth: 10; height: 0.1; width: 0.1"
