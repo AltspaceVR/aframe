@@ -1,5 +1,4 @@
 var debug = require('../utils/debug');
-var diff = require('../utils').diff;
 var registerComponent = require('../core/component').registerComponent;
 var THREE = require('../lib/three');
 
@@ -10,63 +9,91 @@ var warn = debug('components:sound:warn');
  */
 module.exports.Component = registerComponent('sound', {
   schema: {
-    src: { default: '' },
-    on: { default: 'click' },
+    src: { type: 'src' },
+    on: { default: '' },
     autoplay: { default: false },
     loop: { default: false },
     volume: { default: 1 }
   },
 
+  multiple: true,
+
   init: function () {
     this.listener = null;
+    this.audioLoader = new THREE.AudioLoader();
     this.sound = null;
+    this.playSound = this.playSound.bind(this);
   },
 
   update: function (oldData) {
     var data = this.data;
-    var diffData = diff(oldData || {}, data);
-    var el = this.el;
     var sound = this.sound;
-    var src = data.src;
-    var srcChanged = 'src' in diffData;
-
+    var srcChanged = data.src !== oldData.src;
     // Create new sound if not yet created or changing `src`.
     if (srcChanged) {
-      if (!src) {
+      if (!data.src) {
         warn('Audio source was not specified with `src`');
         return;
       }
       sound = this.setupSound();
     }
 
-    if (srcChanged || 'autoplay' in diffData) {
-      sound.autoplay = data.autoplay;
+    sound.autoplay = data.autoplay;
+    sound.setLoop(data.loop);
+    sound.setVolume(data.volume);
+
+    if (data.on !== oldData.on) {
+      this.updateEventListener(oldData.on);
     }
 
-    if (srcChanged || 'loop' in diffData) {
-      sound.setLoop(data.loop);
-    }
-
-    if (srcChanged || 'volume' in diffData) {
-      sound.setVolume(data.volume);
-    }
-
-    if ('on' in diffData) {
-      if (oldData && oldData.on) {
-        el.removeEventListener(oldData.on);
-      }
-      el.addEventListener(data.on, this.play.bind(this));
-    }
-
-    // All sound values set. Load in `src.
+    // All sound values set. Load in `src`.
     if (srcChanged) {
-      sound.load(src);
+      this.audioLoader.load(data.src, function (buffer) {
+        sound.setBuffer(buffer);
+        // Remove this key from cache, otherwise we can't play it again
+        THREE.Cache.remove(data.src);
+      });
     }
   },
 
+  /**
+  *  Update listener attached to the user defined on event.
+  */
+  updateEventListener: function (oldEvt) {
+    var el = this.el;
+    if (oldEvt) { el.removeEventListener(oldEvt, this.playSound); }
+    el.addEventListener(this.data.on, this.playSound);
+  },
+
+  removeEventListener: function () {
+    this.el.removeEventListener(this.data.on, this.playSound);
+  },
+
   remove: function () {
-    this.el.removeObject3D('sound');
-    this.sound.disconnect();
+    this.removeEventListener();
+    this.el.removeObject3D(this.attrName);
+    try {
+      this.sound.disconnect();
+    } catch (e) {
+      // disconnect() will throw if it was never connected initially.
+      warn('Audio source not properly disconnected');
+    }
+  },
+
+  play: function () {
+    if (!this.sound) { return; }
+    if (this.sound.source.buffer && this.data.autoplay) {
+      this.sound.play();
+    }
+    this.updateEventListener();
+  },
+
+  pause: function () {
+    if (!this.sound) { return; }
+    if (this.sound.source.buffer && this.sound.isPlaying) {
+      this.sound.pause();
+    }
+    this.removeEventListener();
   },
 
   /**
@@ -80,7 +107,7 @@ module.exports.Component = registerComponent('sound', {
     var sound = this.sound;
 
     if (sound) {
-      this.stop();
+      this.stopSound();
       el.removeObject3D('sound');
     }
 
@@ -98,7 +125,7 @@ module.exports.Component = registerComponent('sound', {
     });
 
     sound = this.sound = new THREE.PositionalAudio(listener);
-    el.setObject3D('sound', sound);
+    el.setObject3D(this.attrName, sound);
 
     sound.source.onended = function () {
       sound.onEnded();
@@ -108,18 +135,13 @@ module.exports.Component = registerComponent('sound', {
     return sound;
   },
 
-  play: function () {
+  playSound: function () {
     if (!this.sound.source.buffer) { return; }
     this.sound.play();
   },
 
-  stop: function () {
+  stopSound: function () {
     if (!this.sound.source.buffer) { return; }
     this.sound.stop();
-  },
-
-  pause: function () {
-    if (!this.sound.source.buffer || !this.sound.isPlaying) { return; }
-    this.sound.pause();
   }
 });

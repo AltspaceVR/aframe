@@ -4,8 +4,44 @@ var entityFactory = require('../helpers').entityFactory;
 suite('camera system', function () {
   setup(function (done) {
     var el = this.el = entityFactory();
+    if (el.hasLoaded) { done(); }
     el.addEventListener('loaded', function () {
       done();
+    });
+  });
+
+  suite('setupDefaultCamera', function () {
+    test('uses defined camera if defined', function (done) {
+      var assetsEl;
+      var imgEl;  // Image that will never load.
+      var cameraEl;
+      var sceneEl;
+
+      // Create assets.
+      assetsEl = document.createElement('a-assets');
+      imgEl = document.createElement('img');
+      imgEl.setAttribute('src', 'neverloadlalala5.gif');
+      assetsEl.appendChild(imgEl);
+
+      // Create scene.
+      sceneEl = document.createElement('a-scene');
+      sceneEl.appendChild(assetsEl);
+
+      // Create camera.
+      cameraEl = document.createElement('a-entity');
+      cameraEl.setAttribute('camera', '');
+      sceneEl.appendChild(cameraEl);
+
+      sceneEl.addEventListener('loaded', function () {
+        assert.equal(sceneEl.camera.el, cameraEl);
+        done();
+      });
+
+      document.body.appendChild(sceneEl);
+
+      // Trigger scene load through assets. Camera will be waiting for assets.
+      // Add `setTimeout` to mimic asynchrony of asset loading.
+      setTimeout(function () { assetsEl.load(); });
     });
   });
 
@@ -24,10 +60,9 @@ suite('camera system', function () {
       sceneEl.appendChild(camera1El);
       camera2El.setAttribute('camera', 'active: true');
       sceneEl.appendChild(camera2El);
-      process.nextTick(function () {
+      camera2El.addEventListener('loaded', function () {
         assert.notOk(camera1El.getAttribute('camera').active);
-        sceneEl.systems.camera.setActiveCamera(camera1El, camera1El.components.camera.camera);
-        assert.ok(camera1El.getAttribute('camera').active);
+        sceneEl.systems.camera.setActiveCamera(camera1El);
         assert.notOk(camera2El.getAttribute('camera').active);
         done();
       });
@@ -43,7 +78,7 @@ suite('camera system', function () {
       camera2El.setAttribute('camera', 'active: false');
       sceneEl.appendChild(camera2El);
 
-      process.nextTick(function () {
+      camera2El.addEventListener('loaded', function () {
         cameraEl.setAttribute('camera', 'active: true');
         camera2El.setAttribute('camera', 'active: true');
         assert.notOk(cameraEl.getAttribute('camera').active);
@@ -58,10 +93,10 @@ suite('camera system', function () {
       var sceneEl = this.el.sceneEl;
       cameraEl2.setAttribute('camera', 'active: true');
       process.nextTick(function () {
-        assert.ok(sceneEl.querySelector('[data-aframe-default-camera]'));
         sceneEl.appendChild(cameraEl2);
         // Need to setTimeout to wait for scene to remove element.
-        setTimeout(function () {
+        cameraEl2.addEventListener('loaded', function () {
+          assert.equal(cameraEl2.components.camera.camera, sceneEl.camera);
           assert.notOk(sceneEl.querySelector('[data-aframe-default-camera]'));
           done();
         });

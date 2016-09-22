@@ -16,21 +16,38 @@ module.exports = registerElement('a-node', {
         this.isNode = true;
         this.mixinEls = [];
         this.mixinObservers = {};
-      }
+      },
+      writable: window.debug
     },
 
     attachedCallback: {
       value: function () {
         var mixins = this.getAttribute('mixin');
-        this.sceneEl = this.tagName === 'A-SCENE' ? this : this.closest('a-scene');
+        this.sceneEl = this.closestScene();
         this.emit('nodeready', {}, false);
         if (mixins) { this.updateMixins(mixins); }
-      }
+      },
+      writable: window.debug
     },
 
     attributeChangedCallback: {
       value: function (attr, oldVal, newVal) {
         if (attr === 'mixin') { this.updateMixins(newVal, oldVal); }
+      }
+    },
+
+   /**
+    * Returns the first scene by traversing up the tree starting from and
+    * including receiver element.
+    */
+    closestScene: {
+      value: function closest () {
+        var element = this;
+        while (element) {
+          if (element.isScene) { break; }
+          element = element.parentElement;
+        }
+        return element;
       }
     },
 
@@ -82,8 +99,8 @@ module.exports = registerElement('a-node', {
         });
 
         Promise.all(childrenLoaded).then(function emitLoaded () {
-          if (cb) { cb(); }
           self.hasLoaded = true;
+          if (cb) { cb(); }
           self.emit('loaded', {}, false);
         });
       },
@@ -92,11 +109,7 @@ module.exports = registerElement('a-node', {
 
     getChildren: {
       value: function () {
-        var children = [];
-        for (var i = 0; i < this.children.length; i++) {
-          children.push(this.children[i]);
-        }
-        return children;
+        return Array.prototype.slice.call(this.children, 0);
       }
     },
 
@@ -109,34 +122,6 @@ module.exports = registerElement('a-node', {
         this.mixinEls = [];
         diff.forEach(this.unregisterMixin.bind(this));
         newMixinsIds.forEach(this.registerMixin.bind(this));
-      }
-    },
-
-    addMixin: {
-      value: function (mixinId) {
-        var mixins = this.getAttribute('mixin');
-        var mixinIds = mixins.split(' ');
-        var i;
-        for (i = 0; i < mixinIds.length; ++i) {
-          if (mixinIds[i] === mixinId) { return; }
-        }
-        mixinIds.push(mixinId);
-        this.setAttribute('mixin', mixinIds.join(' '));
-      }
-    },
-
-    removeMixin: {
-      value: function (mixinId) {
-        var mixins = this.getAttribute('mixin');
-        var mixinIds = mixins.split(' ');
-        var i;
-        for (i = 0; i < mixinIds.length; ++i) {
-          if (mixinIds[i] === mixinId) {
-            mixinIds.splice(i, 1);
-            this.setAttribute('mixin', mixinIds.join(' '));
-            return;
-          }
-        }
       }
     },
 
@@ -191,7 +176,7 @@ module.exports = registerElement('a-node', {
         if (currentObserver) { return; }
         var observer = new MutationObserver(function (mutations) {
           var attr = mutations[0].attributeName;
-          self.applyMixin(attr);
+          self.handleMixinUpdate(attr);
         });
         var config = { attributes: true };
         observer.observe(mixinEl, config);
@@ -199,7 +184,7 @@ module.exports = registerElement('a-node', {
       }
     },
 
-    applyMixin: {
+    handleMixinUpdate: {
       value: function () { /* no-op */ }
     },
 

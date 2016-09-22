@@ -1,8 +1,10 @@
-/* global assert, setup, suite, sinon, test */
-'use strict';
+/* global assert, setup, suite, test */
 var helpers = require('../helpers.js');
 var AAnimation = require('core/a-animation').AAnimation;
 var getAnimationValues = require('core/a-animation').getAnimationValues;
+var utils = require('utils/');
+
+var getComponentProperty = utils.entity.getComponentProperty;
 
 /**
  * Helpers to start initialize an animation.
@@ -16,7 +18,7 @@ var getAnimationValues = require('core/a-animation').getAnimationValues;
 function setupAnimation (animationAttrs, cb, elAttrs) {
   var animationEl = document.createElement('a-animation');
   var el = helpers.entityFactory();
-  var done;
+  var done = false;
 
   // TODO: have <a-animation> setAttribute support this.
   Object.keys(animationAttrs).forEach(function (key) {
@@ -32,11 +34,62 @@ function setupAnimation (animationAttrs, cb, elAttrs) {
       done = true;
     }
   });
-  animationEl.addEventListener('loaded', function () {
-    animationEl.start();
-  });
   el.isPlaying = true;
   el.appendChild(animationEl);
+}
+
+/**
+ * This will generate a color animation test using passed format
+ *   of to and from in order to test rgb, hsl, and nouns.
+ *  @param {description} description of the test
+ *  @param {from} expects a color format of white
+ *  @param {to} expects a color format of black
+ */
+function generateColorAnimationTest (description, from, to, attribute) {
+  suite('component color animation:' + description, function () {
+    setup(function (done) {
+      var self = this;
+      var elAttrs;
+      var attributeSplit;
+      if (attribute) {
+        attributeSplit = attribute.split('.');
+        elAttrs = {};
+        elAttrs[attribute] = '';
+        elAttrs[attributeSplit[0]] = {shader: 'flat'};
+        elAttrs[attributeSplit[0]][attributeSplit[1]] = '#FFF';
+      }
+      setupAnimation({
+        attribute: attribute || 'color',
+        dur: 1000,
+        fill: 'both',
+        from: from,
+        to: to,
+        easing: 'linear'
+      }, function (el, animationEl, startTime) {
+        self.el = el;
+        self.animationEl = animationEl;
+        self.startTime = startTime;
+        done();
+      }, elAttrs || {color: ''});
+    });
+
+    test('start value', function () {
+      assert.equal(getComponentProperty(this.el, attribute || 'color'), '#ffffff');
+    });
+
+    test('between value', function () {
+      var color;
+      this.animationEl.tween.update(this.startTime + 500);
+      color = getComponentProperty(this.el, attribute || 'color');
+      assert.isAbove(color, '#000000');
+      assert.isBelow(color, '#ffffff');
+    });
+
+    test('finish value', function () {
+      this.animationEl.tween.update(this.startTime + 1000);
+      assert.equal(getComponentProperty(this.el, attribute || 'color'), '#000000');
+    });
+  });
 }
 
 /**
@@ -63,20 +116,20 @@ suite('a-animation', function () {
     test('stops animation', function (done) {
       setupAnimation({}, function (el, animationEl) {
         assert.ok(animationEl.isRunning);
-        animationEl.parentNode.removeChild(animationEl);
         animationEl.addEventListener('animationstop', function () {
           assert.notOk(animationEl.isRunning);
           done();
         });
+        animationEl.parentNode.removeChild(animationEl);
       });
     });
   });
 
   suite('update', function () {
     test('called on initialization', function (done) {
-      this.sinon.stub(AAnimation.prototype, 'update');
+      var spy = this.sinon.spy(AAnimation.prototype, 'update');
       setupAnimation({}, function (el, animationEl) {
-        sinon.assert.called(AAnimation.prototype.update);
+        assert.ok(spy.called);
         done();
       });
     });
@@ -300,7 +353,7 @@ suite('a-animation', function () {
       animationEl.setAttribute('begin', 'click');
       el.isPlaying = true;
       el.appendChild(animationEl);
-      animationEl.addEventListener('loaded', function () {
+      el.addEventListener('loaded', function () {
         el.emit('click');
         assert.ok(animationEl.isRunning);
         done();
@@ -324,8 +377,20 @@ suite('a-animation', function () {
       var el = helpers.entityFactory();
       animationEl.setAttribute('begin', '1');
       el.appendChild(animationEl);
-      el.play();
-      process.nextTick(function () {
+      el.addEventListener('loaded', function () {
+        el.play();
+        assert.ok(animationEl.isRunning);
+        done();
+      });
+    });
+
+    test('is run when entity plays and delay is set', function (done) {
+      var animationEl = document.createElement('a-animation');
+      var el = helpers.entityFactory();
+      animationEl.setAttribute('delay', '1');
+      el.appendChild(animationEl);
+      el.addEventListener('loaded', function () {
+        el.play();
         assert.ok(animationEl.isRunning);
         done();
       });
@@ -548,6 +613,107 @@ suite('a-animation', function () {
         });
         done();
       });
+    });
+  });
+
+  generateColorAnimationTest('default test', '#ffffff', '#000000');
+  generateColorAnimationTest('accepts hex shorthand', '#fff', '#000');
+  generateColorAnimationTest('accepts nouns and rgb', 'rgb(255, 255, 255)', 'black');
+  generateColorAnimationTest('accepts hsl', 'hsl(1, 100%, 100%)', 'hsl(0, 0%, 0%)');
+  generateColorAnimationTest('accepts dot notation', 'white', 'black', 'material.color');
+
+  suite('component color animation: accepts dot notation', function () {
+    var attribute = 'material.color';
+    setup(function (done) {
+      var self = this;
+      var elAttrs = { color: '', material: { shader: 'flat', color: '#FF0000' } };
+
+      setupAnimation({
+        attribute: 'material.color',
+        dur: 1000,
+        fill: 'both',
+        from: 'red',
+        to: 'blue',
+        easing: 'linear'
+      }, function (el, animationEl, startTime) {
+        self.el = el;
+        self.animationEl = animationEl;
+        self.startTime = startTime;
+        done();
+      }, elAttrs);
+    });
+
+    test('start value', function () {
+      assert.equal(this.el.getComputedAttribute(attribute), '#ff0000');
+    });
+
+    test('between value', function () {
+      var color;
+      this.animationEl.tween.update(this.startTime + 500);
+      color = this.el.getComputedAttribute(attribute);
+      assert.isAbove(color, '#0000ff');
+      assert.isBelow(color, '#ff0000');
+    });
+
+    test('finish value', function () {
+      this.animationEl.tween.update(this.startTime + 1000);
+      assert.equal(this.el.getComputedAttribute(attribute), '#0000ff');
+    });
+  });
+
+  suite('end', function () {
+    test('stops animation when event is triggered', function (done) {
+      var animationEl = document.createElement('a-animation');
+      var el = helpers.entityFactory();
+      animationEl.setAttribute('begin', 'begin-event');
+      animationEl.setAttribute('end', 'end-event');
+      el.isPlaying = true;
+      el.appendChild(animationEl);
+      el.addEventListener('loaded', function () {
+        el.emit('begin-event');
+        assert.ok(animationEl.isRunning);
+        el.emit('end-event');
+        assert.ok(!animationEl.isRunning);
+        done();
+      });
+    });
+  });
+
+  suite('dynamic animations', function () {
+    test('animation plays when both entity and animation are dynamically created', function (done) {
+      var sceneEl = document.createElement('a-scene');
+      sceneEl.addEventListener('loaded', createAnimation);
+      document.body.appendChild(sceneEl);
+      function createAnimation () {
+        var entityEl = document.createElement('a-entity');
+        var animationEl = document.createElement('a-animation');
+        animationEl.setAttribute('attribute', 'rotation');
+        animationEl.setAttribute('repeat', 'indefinite');
+        animationEl.setAttribute('to', '0 360 0');
+        entityEl.appendChild(animationEl);
+        sceneEl.appendChild(entityEl);
+        entityEl.addEventListener('loaded', function () {
+          assert.ok(animationEl.isRunning);
+          done();
+        });
+      }
+    });
+
+    test('animation does not play if entity has not loaded when both entity and animation are dynamically created', function (done) {
+      var sceneEl = document.createElement('a-scene');
+      sceneEl.addEventListener('loaded', createAnimation);
+      document.body.appendChild(sceneEl);
+      function createAnimation () {
+        var entityEl = document.createElement('a-entity');
+        var animationEl = document.createElement('a-animation');
+        animationEl.setAttribute('attribute', 'rotation');
+        animationEl.setAttribute('repeat', 'indefinite');
+        animationEl.setAttribute('to', '0 360 0');
+        entityEl.appendChild(animationEl);
+        sceneEl.appendChild(entityEl);
+        assert.notOk(animationEl.isRunning);
+        done();
+      }
     });
   });
 });

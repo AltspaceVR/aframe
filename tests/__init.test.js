@@ -5,6 +5,17 @@
  */
 window.debug = true;
 
+navigator.getVRDisplays = function () {
+  var resolvePromise = Promise.resolve();
+  var mockVRDisplay = {
+    requestPresent: resolvePromise,
+    exitPresent: resolvePromise
+  };
+  return new Promise(function (resolve) {
+    resolve([mockVRDisplay]);
+  });
+};
+
 var AScene = require('core/scene/a-scene');
 
 setup(function () {
@@ -23,7 +34,5 @@ teardown(function () {
       els[i].parentNode.removeChild(els[i]);
     }
   });
-  AScene.scene = null;
-
   this.sinon.restore();
 });

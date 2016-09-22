@@ -60,9 +60,9 @@ Shader.prototype = {
     var self = this;
     var variables = {};
     var schema = this.schema;
-    var squemaKeys = Object.keys(schema);
-    squemaKeys.forEach(processSquema);
-    function processSquema (key) {
+    var schemaKeys = Object.keys(schema);
+    schemaKeys.forEach(processSchema);
+    function processSchema (key) {
       if (schema[key].is !== type) { return; }
       var varType = propertyToThreeMapping[schema[key].type];
       var varValue = schema[key].parse(data[key] || schema[key].default);
@@ -142,7 +142,7 @@ module.exports.registerShader = function (name, definition) {
   });
 
   if (shaders[name]) {
-    throw Error('The shader ' + name + ' has been already registered');
+    throw new Error('The shader ' + name + ' has been already registered');
   }
   NewShader = function () { Shader.call(this); };
   NewShader.prototype = Object.create(Shader.prototype, proto);

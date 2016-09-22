@@ -1,12 +1,10 @@
 /* global Promise */
-var debug = require('../utils/debug');
-var utils = require('../utils');
+var utils = require('../utils/');
 var component = require('../core/component');
 var THREE = require('../lib/three');
 var shader = require('../core/shader');
 
-var error = debug('components:material:error');
-var diff = utils.diff;
+var error = utils.debug('components:material:error');
 var registerComponent = component.registerComponent;
 var shaders = shader.shaders;
 var shaderNames = shader.shaderNames;
@@ -20,11 +18,13 @@ var shaderNames = shader.shaderNames;
  */
 module.exports.Component = registerComponent('material', {
   schema: {
-    shader: { default: 'standard', oneOf: shaderNames },
-    transparent: { default: false },
-    opacity: { default: 1.0, min: 0.0, max: 1.0 },
-    side: { default: 'front', oneOf: ['front', 'back', 'double'] },
-    depthTest: { default: true }
+    depthTest: {default: true},
+    flatShading: {default: false},
+    opacity: {default: 1.0, min: 0.0, max: 1.0},
+    shader: {default: 'standard', oneOf: shaderNames},
+    side: {default: 'front', oneOf: ['front', 'back', 'double']},
+    transparent: {default: false},
+    visible: {default: true}
   },
 
   init: function () {
@@ -38,9 +38,7 @@ module.exports.Component = registerComponent('material', {
    */
   update: function (oldData) {
     var data = this.data;
-    var dataDiff = oldData ? diff(oldData, data) : data;
-
-    if (!this.shader || dataDiff.shader) {
+    if (!this.shader || data.shader !== oldData.shader) {
       this.updateShader(data.shader);
     }
     this.shader.update(this.data);
@@ -85,12 +83,15 @@ module.exports.Component = registerComponent('material', {
   updateShader: function (shaderName) {
     var data = this.data;
     var Shader = shaders[shaderName] && shaders[shaderName].Shader;
-    var material;
+    var shaderInstance;
+
     if (!Shader) { throw new Error('Unknown shader ' + shaderName); }
-    this.shader = new Shader();
-    this.shader.el = this.el;
-    material = this.shader.init(data);
-    this.setMaterial(material);
+
+    // Get material from A-Frame shader.
+    shaderInstance = this.shader = new Shader();
+    shaderInstance.el = this.el;
+    shaderInstance.init(data);
+    this.setMaterial(shaderInstance.material);
     this.updateSchema(data);
   },
 
@@ -101,16 +102,20 @@ module.exports.Component = registerComponent('material', {
     material.opacity = data.opacity;
     material.transparent = data.transparent !== false || data.opacity < 1.0;
     material.depthTest = data.depthTest !== false;
+    material.shading = data.flatShading ? THREE.FlatShading : THREE.SmoothShading;
+    material.visible = data.visible;
   },
 
   /**
    * Remove material on remove (callback).
+   * Dispose of it from memory and unsubscribe from scene updates.
    */
   remove: function () {
     var defaultMaterial = new THREE.MeshBasicMaterial();
+    var material = this.material;
     var object3D = this.el.getObject3D('mesh');
     if (object3D) { object3D.material = defaultMaterial; }
-    this.system.unregisterMaterial(this.material);
+    disposeMaterial(material, this.system);
   },
 
   /**
@@ -124,7 +129,7 @@ module.exports.Component = registerComponent('material', {
   setMaterial: function (material) {
     var mesh = this.el.getOrCreateObject3D('mesh', THREE.Mesh);
     var system = this.system;
-    if (this.material) { system.unregisterMaterial(this.material); }
+    if (this.material) { disposeMaterial(this.material, system); }
     this.material = mesh.material = material;
     system.registerMaterial(material);
   }
@@ -150,4 +155,12 @@ function parseSide (side) {
       return THREE.FrontSide;
     }
   }
+}
+
+/**
+ * Dispose of material from memory and unsubscribe material from scene updates like fog.
+ */
+function disposeMaterial (material, system) {
+  material.dispose();
+  system.unregisterMaterial(material);
 }

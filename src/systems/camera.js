@@ -1,6 +1,8 @@
+var constants = require('../constants/');
 var registerSystem = require('../core/system').registerSystem;
 
 var DEFAULT_CAMERA_ATTR = 'data-aframe-default-camera';
+var DEFAULT_USER_HEIGHT = 1.6;
 
 /**
  * Camera system. Manages which camera is active among multiple cameras in scene.
@@ -10,41 +12,39 @@ var DEFAULT_CAMERA_ATTR = 'data-aframe-default-camera';
 module.exports.System = registerSystem('camera', {
   init: function () {
     this.activeCameraEl = null;
-    this.setupDefaultCamera();
+    // Wait for all entities to fully load before checking for existence of camera.
+    // Since entities wait for <a-assets> to load, any cameras attaching to the scene
+    // will do so asynchronously.
+    this.sceneEl.addEventListener('loaded', this.setupDefaultCamera.bind(this));
   },
 
   /**
-   * Creates a default camera if user has not added one during the initial scene traversal.
+   * Create a default camera if user has not added one during the initial scene traversal.
    *
-   * Default camera height is at human level (~1.8m) and back such that
-   * entities at the origin (0, 0, 0) are well-centered.
+   * Default camera offset height is at average eye level (~1.6m).
    */
   setupDefaultCamera: function () {
     var sceneEl = this.sceneEl;
-    var cameraWrapperEl;
     var defaultCameraEl;
 
-    // setTimeout in case the camera is being set dynamically with a setAttribute.
-    setTimeout(function checkForCamera () {
-      var cameraEl = sceneEl.querySelector('[camera]');
+    // Camera already defined.
+    if (sceneEl.camera) {
+      sceneEl.emit('camera-ready', {cameraEl: sceneEl.camera.el});
+      return;
+    }
 
-      if (cameraEl && cameraEl.isEntity) {
-        sceneEl.emit('camera-ready', {cameraEl: cameraEl});
-        return;
-      }
-
-      // DOM calls to create camera.
-      cameraWrapperEl = document.createElement('a-entity');
-      cameraWrapperEl.setAttribute('position', {x: 0, y: 1.8, z: 4});
-      cameraWrapperEl.setAttribute(DEFAULT_CAMERA_ATTR, '');
-      defaultCameraEl = document.createElement('a-entity');
-      defaultCameraEl.setAttribute('camera', {'active': true});
-      defaultCameraEl.setAttribute('wasd-controls');
-      defaultCameraEl.setAttribute('look-controls');
-      cameraWrapperEl.appendChild(defaultCameraEl);
-      sceneEl.appendChild(cameraWrapperEl);
-      sceneEl.emit('camera-ready', {cameraEl: defaultCameraEl});
-    });
+    // Set up default camera.
+    defaultCameraEl = document.createElement('a-entity');
+    defaultCameraEl.setAttribute('position', '0 0 0');
+    defaultCameraEl.setAttribute(DEFAULT_CAMERA_ATTR, '');
+    defaultCameraEl.setAttribute('camera', {active: true, userHeight: DEFAULT_USER_HEIGHT});
+    defaultCameraEl.setAttribute('wasd-controls', '');
+    defaultCameraEl.setAttribute('look-controls', '');
+    defaultCameraEl.setAttribute(constants.AFRAME_INJECTED, '');
+    sceneEl.appendChild(defaultCameraEl);
+    sceneEl.addEventListener('enter-vr', this.removeDefaultOffset);
+    sceneEl.addEventListener('exit-vr', this.addDefaultOffset);
+    sceneEl.emit('camera-ready', {cameraEl: defaultCameraEl});
   },
 
   /**
@@ -54,9 +54,8 @@ module.exports.System = registerSystem('camera', {
    * the new camera.
    */
   disableActiveCamera: function () {
-    var sceneEl = this.sceneEl;
-    var sceneCameras = sceneEl.querySelectorAll('[camera]');
-    var newActiveCameraEl = sceneCameras[sceneCameras.length - 1];
+    var cameraEls = this.sceneEl.querySelectorAll('[camera]');
+    var newActiveCameraEl = cameraEls[cameraEls.length - 1];
     newActiveCameraEl.setAttribute('camera', 'active', true);
   },
 
@@ -66,35 +65,46 @@ module.exports.System = registerSystem('camera', {
    * Disables all other cameras in the scene.
    *
    * @param {Element} newCameraEl - Entity with camera component.
-   * @param {object} newCamera - three.js Camera object.
    */
-  setActiveCamera: function (newCameraEl, newCamera) {
+  setActiveCamera: function (newCameraEl) {
     var cameraEl;
+    var cameraEls;
     var i;
+    var newCamera;
+    var previousCamera = this.activeCameraEl;
     var sceneEl = this.sceneEl;
-    var sceneCameraEls = sceneEl.querySelectorAll('[camera]');
+
+    // Same camera.
+    newCamera = newCameraEl.getObject3D('camera');
+    if (!newCamera || newCameraEl === this.activeCameraEl) { return; }
 
     // Grab the default camera.
     var defaultCameraWrapper = sceneEl.querySelector('[' + DEFAULT_CAMERA_ATTR + ']');
     var defaultCameraEl = defaultCameraWrapper &&
                           defaultCameraWrapper.querySelector('[camera]');
+
     // Remove default camera if new camera is not the default camera.
     if (newCameraEl !== defaultCameraEl) { removeDefaultCamera(sceneEl); }
 
     // Make new camera active.
     this.activeCameraEl = newCameraEl;
-    if (sceneEl.isPlaying) { newCameraEl.play(); }
-    newCameraEl.setAttribute('camera', 'active', true);
+    this.activeCameraEl.play();
     sceneEl.camera = newCamera;
-    sceneEl.emit('camera-set-active', {cameraEl: newCameraEl});
 
-    // Disable other cameras.
-    for (i = 0; i < sceneCameraEls.length; i++) {
-      cameraEl = sceneCameraEls[i];
+    // Disable current camera
+    if (previousCamera) {
+      previousCamera.setAttribute('camera', 'active', false);
+    }
+
+    // Disable other cameras in the scene
+    cameraEls = sceneEl.querySelectorAll('[camera]');
+    for (i = 0; i < cameraEls.length; i++) {
+      cameraEl = cameraEls[i];
       if (newCameraEl === cameraEl) { continue; }
       cameraEl.setAttribute('camera', 'active', false);
       cameraEl.pause();
     }
+    sceneEl.emit('camera-set-active', {cameraEl: newCameraEl});
   }
 });
 
@@ -104,12 +114,12 @@ module.exports.System = registerSystem('camera', {
  * @param {Element} sceneEl
  */
 function removeDefaultCamera (sceneEl) {
-  var defaultCameraWrapper;
+  var defaultCamera;
   var camera = sceneEl.camera;
   if (!camera) { return; }
 
   // Remove default camera if present.
-  defaultCameraWrapper = sceneEl.querySelector('[' + DEFAULT_CAMERA_ATTR + ']');
-  if (!defaultCameraWrapper) { return; }
-  sceneEl.removeChild(defaultCameraWrapper);
+  defaultCamera = sceneEl.querySelector('[' + DEFAULT_CAMERA_ATTR + ']');
+  if (!defaultCamera) { return; }
+  sceneEl.removeChild(defaultCamera);
 }

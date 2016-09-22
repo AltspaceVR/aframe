@@ -1,7 +1,9 @@
 .DS_Store
 .cache
+*.swp
 build
 firefox/
+tests/coverage/
 gh-pages/
 karma.conf.js
 node_modules

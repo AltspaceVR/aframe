@@ -1,16 +1,18 @@
 var ANode = require('./a-node');
-var constants = require('../constants/animation');
+var animationConstants = require('../constants/animation');
 var coordinates = require('../utils/').coordinates;
 var parseProperty = require('./schema').parseProperty;
 var registerElement = require('./a-register-element').registerElement;
 var TWEEN = require('tween.js');
+var THREE = require('../lib/three');
 var utils = require('../utils/');
 
-var DEFAULTS = constants.defaults;
-var DIRECTIONS = constants.directions;
-var EASING_FUNCTIONS = constants.easingFunctions;
-var FILLS = constants.fills;
-var REPEATS = constants.repeats;
+var getComponentProperty = utils.entity.getComponentProperty;
+var DEFAULTS = animationConstants.defaults;
+var DIRECTIONS = animationConstants.directions;
+var EASING_FUNCTIONS = animationConstants.easingFunctions;
+var FILLS = animationConstants.fills;
+var REPEATS = animationConstants.repeats;
 var isCoordinate = coordinates.isCoordinate;
 
 /**
@@ -41,25 +43,10 @@ module.exports.AAnimation = registerElement('a-animation', {
 
     attachedCallback: {
       value: function () {
-        var self = this;
-        var el = self.el = self.parentNode;
-
-        if (el.isNode) {
-          if (el.hasLoaded) {
-            init();
-          } else {
-            el.addEventListener('loaded', init.bind(self));
-          }
-        } else {
-          // To handle elements that are not yet `<a-entity>`s (e.g., templates).
-          el.addEventListener('nodeready', init.bind(self));
-        }
-
-        function init () {
-          self.applyMixin();
-          self.update();
-          self.load();
-        }
+        this.el = this.parentNode;
+        this.handleMixinUpdate();
+        this.update();
+        this.load();
       }
     },
 
@@ -67,7 +54,7 @@ module.exports.AAnimation = registerElement('a-animation', {
       value: function (attr, oldVal, newVal) {
         if (!this.hasLoaded || !this.isRunning) { return; }
         this.stop();
-        this.applyMixin();
+        this.handleMixinUpdate();
         this.update();
       }
     },
@@ -93,8 +80,8 @@ module.exports.AAnimation = registerElement('a-animation', {
         var el = self.el;
         var animationValues;
         var attribute = data.attribute;
-        var begin = parseInt(data.begin, 10);
-        var currentValue = el.getComputedAttribute(attribute);
+        var delay = parseInt(data.delay, 10);
+        var currentValue = getComponentProperty(el, attribute);
         var direction = self.getDirection(data.direction);
         var easing = EASING_FUNCTIONS[data.easing];
         var fill = data.fill;
@@ -113,7 +100,7 @@ module.exports.AAnimation = registerElement('a-animation', {
           self.count = repeat === Infinity ? 0 : parseInt(data.repeat, 10);
         }
 
-        if (isNaN(begin)) { begin = 0; }
+        if (isNaN(delay)) { delay = 0; }
 
         // Store initial state.
         self.initialValue = self.initialValue || cloneValue(currentValue);
@@ -140,7 +127,7 @@ module.exports.AAnimation = registerElement('a-animation', {
         // Create Tween.
         return new TWEEN.Tween(cloneValue(from))
           .to(to, data.dur)
-          .delay(begin)
+          .delay(delay)
           .easing(easing)
           .repeat(repeat)
           .yoyo(yoyo)
@@ -157,14 +144,26 @@ module.exports.AAnimation = registerElement('a-animation', {
     update: {
       value: function () {
         var data = this.data;
+        // Terminology warning if infinite used instead of indefinite
+        if (data.repeat === 'infinite') {
+          console.warn("Using 'infinite' as 'repeat' value is invalid.  Use 'indefinite' instead.");
+        }
+        // Deprecation warning for begin when used as a delay.
+        if (data.begin !== '' && !isNaN(data.begin)) {
+          console.warn("Using 'begin' to specify a delay is deprecated. Use 'delay' instead.");
+          data.delay = data.begin;
+          data.begin = '';
+        }
         var begin = data.begin;
+        var end = data.end;
         // Cancel previous event listeners
-        this.removeEventListeners(this.evt);
-        this.addEventListeners(begin);
+        if (this.evt) { this.removeEventListeners(this.evt); }
         // Store new event name.
-        this.evt = begin;
-        // If `begin` is a number, start the animation right away.
-        if (!isNaN(begin)) {
+        this.evt = { begin: begin, end: end };
+        // Add new event listeners
+        this.addEventListeners(this.evt);
+        // If `begin` is not defined, start the animation right away.
+        if (begin === '') {
           this.stop();
           this.start();
         }
@@ -200,6 +199,12 @@ module.exports.AAnimation = registerElement('a-animation', {
 
     start: {
       value: function () {
+        var self = this;
+        // Postpone animation start until the entity has loaded
+        if (!this.el.hasLoaded) {
+          this.el.addEventListener('loaded', function () { self.start(); });
+          return;
+        }
         if (this.isRunning || !this.el.isPlaying) { return; }
         this.tween = this.getTween();
         this.isRunning = true;
@@ -263,11 +268,14 @@ module.exports.AAnimation = registerElement('a-animation', {
       value: function (evts) {
         var el = this.el;
         var self = this;
-        utils.splitString(evts).forEach(function (evt) {
+        utils.splitString(evts.begin).forEach(function (evt) {
           el.addEventListener(evt, self.start);
         });
-        // If "begin" is an event name, wait. If it is a delay or not defined, start.
-        if (!isNaN(evts)) { el.addEventListener('play', this.start); }
+        utils.splitString(evts.end).forEach(function (evt) {
+          el.addEventListener(evt, self.stop);
+        });
+        // If "begin" is an event name, wait. If it is not defined, start.
+        if (evts.begin === '') { el.addEventListener('play', this.start); }
         el.addEventListener('pause', this.stop);
         el.addEventListener('stateadded', this.onStateAdded);
         el.addEventListener('stateremoved', this.onStateRemoved);
@@ -278,8 +286,12 @@ module.exports.AAnimation = registerElement('a-animation', {
       value: function (evts) {
         var el = this.el;
         var start = this.start;
-        utils.splitString(evts).forEach(function (evt) {
+        var stop = this.stop;
+        utils.splitString(evts.begin).forEach(function (evt) {
           el.removeEventListener(evt, start);
+        });
+        utils.splitString(evts.end).forEach(function (evt) {
+          el.removeEventListener(evt, stop);
         });
         el.removeEventListener('stateadded', this.onStateAdded);
         el.removeEventListener('stateremoved', this.onStateRemoved);
@@ -305,7 +317,7 @@ module.exports.AAnimation = registerElement('a-animation', {
      * Works the same as component mixins but reimplemented because animations
      * aren't components.
      */
-    applyMixin: {
+    handleMixinUpdate: {
       value: function () {
         var data = {};
         var elData;
@@ -356,13 +368,18 @@ function getAnimationValues (el, attribute, dataFrom, dataTo, currentValue) {
   var from = {};
   var partialSetAttribute;
   var to = {};
-
   if (attributeSplit.length === 2) {
-    getForComponentAttribute();
+    if (isColor()) {
+      getForColorComponent();
+    } else {
+      getForComponentAttribute();
+    }
   } else if (dataTo && isCoordinate(dataTo)) {
     getForCoordinateComponent();
   } else if (['true', 'false'].indexOf(dataTo) !== -1) {
     getForBoolean();
+  } else if (isNaN(dataTo)) {
+    getForColorComponent();
   } else {
     getForNumber();
   }
@@ -371,6 +388,18 @@ function getAnimationValues (el, attribute, dataFrom, dataTo, currentValue) {
     partialSetAttribute: partialSetAttribute,
     to: to
   };
+
+  /**
+   * Match the schema type to color
+   * @return {bool} if the schema is of type color
+   */
+  function isColor () {
+    var componentName = attributeSplit[0];
+    var propertyName = attributeSplit[1];
+    var component = el.components[componentName];
+    var schema = component && component.schema;
+    return schema && schema[propertyName] && schema[propertyName].type === 'color';
+  }
 
   /**
    * Animating a component that has multiple attributes (e.g., geometry.width).
@@ -385,7 +414,7 @@ function getAnimationValues (el, attribute, dataFrom, dataTo, currentValue) {
     }
     schema = component.schema;
     if (dataFrom === undefined) {  // dataFrom can be 0.
-      from[attribute] = el.getComputedAttribute(componentName)[componentPropName];
+      from[attribute] = getComponentProperty(el, attribute);
     } else {
       from[attribute] = dataFrom;
     }
@@ -427,6 +456,22 @@ function getAnimationValues (el, attribute, dataFrom, dataTo, currentValue) {
   }
 
   /**
+   * Animating a color component
+   *   Will convert a hex value to a THREE.Color
+   *   Then converts to hex for the setAttribute
+   */
+  function getForColorComponent () {
+    from = new THREE.Color(dataFrom);
+    to = new THREE.Color(dataTo);
+    partialSetAttribute = function (value) {
+      if (attributeSplit.length > 1) {
+        el.setAttribute(attributeSplit[0], attributeSplit[1], rgbVectorToHex(value));
+      }
+      el.setAttribute(attribute, rgbVectorToHex(value));
+    };
+  }
+
+  /**
    * Animating a numbered attribute (e.g., opacity).
    */
   function getForNumber () {
@@ -462,4 +507,35 @@ function strToBool (str) {
  */
 function boolToNum (bool) {
   return bool ? 1 : 0;
+}
+
+/**
+ * Converts a number 0-255 to hex
+ * @param {number} color number 0 - 255
+ * @returns {string} hex value of number bassed
+ */
+function componentToHex (color) {
+  var hex = color.toString(16);
+  return hex.length === 1 ? '0' + hex : hex;
+}
+
+/**
+ * Clamps a number to 0-1
+ * Then converts that number to 0-255
+ * @param {number} color number 0 - 1
+ * @returns {number} color number 0 - 255
+ */
+function convertToIntegerColor (color) {
+  return Math.floor(Math.min(Math.abs(color), 1) * 255);
+}
+
+/**
+ * Converts a rgb object into a hex string
+ * @param {object} color { r: 1, g: 1, b: 1 }
+ * @returns {string} hex value #ffffff
+ */
+function rgbVectorToHex (color) {
+  return '#' + ['r', 'g', 'b'].map(function (prop) {
+    return componentToHex(convertToIntegerColor(color[prop]));
+  }).join('');
 }

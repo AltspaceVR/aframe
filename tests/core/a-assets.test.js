@@ -1,6 +1,9 @@
 /* global assert, setup, suite, test */
 
 suite('a-assets', function () {
+  // Empty src will not trigger load events in Chrome. Use data URI where a load event is needed.
+  var IMG_SRC = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
   setup(function () {
     var el = this.el = document.createElement('a-assets');
     var scene = this.scene = document.createElement('a-scene');
@@ -21,7 +24,7 @@ suite('a-assets', function () {
 
     // Create image.
     var img = document.createElement('img');
-    img.setAttribute('src', '');
+    img.setAttribute('src', IMG_SRC);
     el.appendChild(img);
 
     scene.addEventListener('loaded', function () {
@@ -82,6 +85,67 @@ suite('a-assets', function () {
     });
 
     document.body.appendChild(scene);
+  });
+
+  suite('crossorigin', function () {
+    test('recreates media elements with crossorigin if necessary', function (done) {
+      var el = this.el;
+      var scene = this.scene;
+      var img = document.createElement('img');
+
+      img.setAttribute('id', 'myImage');
+      img.setAttribute('src', 'https://example.url/asset.png');
+      el.setAttribute('timeout', 50);
+      el.appendChild(img);
+
+      el.addEventListener('loaded', function () {
+        assert.ok(el.querySelectorAll('img').length, 1);
+        assert.ok(el.querySelector('#myImage').hasAttribute('crossorigin'));
+        done();
+      });
+
+      document.body.appendChild(scene);
+    });
+
+    test('does not recreate media element if not crossorigin', function (done) {
+      var el = this.el;
+      var scene = this.scene;
+      var img = document.createElement('img');
+      var cloneSpy = this.sinon.spy(img, 'cloneNode');
+
+      img.setAttribute('id', 'myImage');
+      img.setAttribute('src', 'asset.png');
+      el.setAttribute('timeout', 50);
+      el.appendChild(img);
+
+      el.addEventListener('loaded', function () {
+        assert.notOk(el.querySelector('#myImage').hasAttribute('crossorigin'));
+        assert.notOk(cloneSpy.called);
+        done();
+      });
+
+      document.body.appendChild(scene);
+    });
+
+    test('does not recreate media element if crossorigin already set', function (done) {
+      var el = this.el;
+      var scene = this.scene;
+      var img = document.createElement('img');
+      var cloneSpy = this.sinon.spy(img, 'cloneNode');
+
+      img.setAttribute('id', 'myImage');
+      img.setAttribute('src', 'https://example.url/asset.png');
+      img.setAttribute('crossorigin', '');
+      el.setAttribute('timeout', 50);
+      el.appendChild(img);
+
+      el.addEventListener('loaded', function () {
+        assert.notOk(cloneSpy.called);
+        done();
+      });
+
+      document.body.appendChild(scene);
+    });
   });
 });
 

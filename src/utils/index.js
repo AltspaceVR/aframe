@@ -5,9 +5,12 @@ var deepAssign = require('deep-assign');
 var objectAssign = require('object-assign');
 
 module.exports.coordinates = require('./coordinates');
+module.exports.checkHeadsetConnected = require('./checkHeadsetConnected');
 module.exports.debug = require('./debug');
+module.exports.entity = require('./entity');
+module.exports.forceCanvasResizeSafariMobile = require('./forceCanvasResizeSafariMobile');
+module.exports.material = require('./material');
 module.exports.styleParser = require('./styleParser');
-module.exports.texture = require('./texture');
 
 /**
  * Fires a custom DOM event.
@@ -22,31 +25,7 @@ module.exports.fireEvent = function (el, name, data) {
   data.detail = data.detail || {};
   data.detail.target = data.detail.target || el;
   var evt = new CustomEvent(name, data);
-  evt.target = el;
   el.dispatchEvent(evt);
-};
-
-/**
- * Throws an error given a message.
- *
- * @param {String} msg Error message.
- */
-module.exports.error = function (msg) {
-  throw new Error(msg);
-};
-
-/**
- * Emits a console warning given passed message argument(s).
- */
-module.exports.warn = function () {
-  console.warn.apply(console, arguments);
-};
-
-/**
- * Emits a console log given passed message argument(s).
- */
-module.exports.log = function () {
-  console.log.apply(console, arguments);
 };
 
 /**
@@ -122,12 +101,19 @@ module.exports.isMobile = function () {
     if (isIOS()) {
       check = true;
     }
+    if (isGearVR()) {
+      check = false;
+    }
   })(navigator.userAgent || navigator.vendor || window.opera);
   return check;
 };
 
 var isIOS = module.exports.isIOS = function () {
   return /iPad|iPhone|iPod/.test(navigator.platform);
+};
+
+var isGearVR = module.exports.isGearVR = function () {
+  return /SamsungBrowser.+Mobile VR/i.test(navigator.userAgent);
 };
 
 /**
@@ -202,6 +188,22 @@ module.exports.getUrlParameter = function (name) {
  */
 module.exports.isIframed = function () {
   return window.top !== window.self;
+};
+
+/**
+ * Finds all elements under the element that have the isScene
+ * property set to true
+ */
+module.exports.findAllScenes = function (el) {
+  var matchingElements = [];
+  var allElements = el.getElementsByTagName('*');
+  for (var i = 0, n = allElements.length; i < n; i++) {
+    if (allElements[i].isScene) {
+      // Element exists with isScene set.
+      matchingElements.push(allElements[i]);
+    }
+  }
+  return matchingElements;
 };
 
 // Must be at bottom to avoid circular dependency.

@@ -1,9 +1,9 @@
 var getMeshMixin = require('../getMeshMixin');
-var registerPrimitive = require('../registerPrimitive');
+var registerPrimitive = require('../primitives').registerPrimitive;
 var utils = require('../../../utils/');
 
 registerPrimitive('a-curvedimage', utils.extendDeep({}, getMeshMixin(), {
-  defaultAttributes: {
+  defaultComponents: {
     geometry: {
       height: 1,
       primitive: 'cylinder',
@@ -30,7 +30,6 @@ registerPrimitive('a-curvedimage', utils.extendDeep({}, getMeshMixin(), {
     start: 'geometry.thetaStart',
     'theta-length': 'geometry.thetaLength',
     'theta-start': 'geometry.thetaStart',
-    translate: 'geometry.translate',
     'width': 'geometry.thetaLength'
   }
 }));
