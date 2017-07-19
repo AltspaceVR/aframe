@@ -4,9 +4,9 @@
     <meta charset="utf-8">
     <title>Tracked Controls</title>
     <meta name="description" content="Tracked Controls – A-Frame">
+    <script>navigator.getGamepads = altspace.getGamepads.bind(altspace);</script>
     <script src="../../../dist/aframe.js"></script>
-    <script src="https://cdn.rawgit.com/AltspaceVR/aframe-altspace-component/v1.3.0/dist/aframe-altspace-component.min.js"></script>
-    <script src="http://sdk.altvr.com/libs/altspace.js/0.19.2/altspace.min.js"></script>
+    <script src="https://sdk.altvr.com/libs/altspace.js/2.6.1/altspace.js"></script>
     <script src="components/aabb-collider.js"></script>
     <script src="components/grab.js"></script>
     <script src="shaders/skyGradient.js"></script>
@@ -51,9 +51,6 @@
         <a-entity class="cube" id="cube16" mixin="cube" position="-0.60 0.15 0"></a-entity>
 
         <!-- Environment -->
-        <a-entity id="sky"
-                  geometry="primitive: sphere; radius: 65;"
-                  material="shader: skyGradient; colorTop: #353449; colorBottom: #BC483E; side: back"></a-entity>
          <a-entity light="type: point; color: #f4f4f4; intensity: 0.2; distance: 0" position="8 10 18"></a-entity>
          <a-entity light="type: point; color: #f4f4f4; intensity: 0.6; distance: 0" position="-8 10 -18"></a-entity>
          <a-entity light="type: ambient; color: #f4f4f4; intensity: 0.4;" position="-8 10 -18"></a-entity>
